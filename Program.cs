@@ -61,7 +61,10 @@ var builder =
     .AddAzureOpenAIChatCompletion(modelId, azureOpenAIEndpoint, new DefaultAzureCredential());
 
 // Change the log level to Trace to see more detailed logs
-builder.Services.AddLogging(loggingBuilder => loggingBuilder.AddConsole().SetMinimumLevel(LogLevel.Information));
+builder.Services.AddLogging(loggingBuilder => {
+    loggingBuilder.AddConsole().SetMinimumLevel(LogLevel.Warning)
+        .AddFilter("Microsoft.SemanticKernel", LogLevel.Trace);
+});
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton((sp)
     => new SessionsPythonPlugin(
