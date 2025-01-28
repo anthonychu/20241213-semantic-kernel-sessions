@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text;
 using Azure.Identity;
 using Microsoft.Extensions.Configuration;
@@ -17,35 +18,27 @@ var configuration = new ConfigurationBuilder()
     .Build();
 
 var modelId = "gpt-35-turbo";
-var azureOpenAIEndpoint = "https://openai-7u62dl4wuylsm.openai.azure.com/";
-var poolManagementEndpoint = "https://northcentralus.dynamicsessions.io/subscriptions/30501c6c-81f6-41ac-a388-d29cf43a020d/resourceGroups/20241022-test-lab-deploy/sessionPools/sessionpool-7u62dl4wuylsm";
-
-// Cached token for the Azure Container Apps service
-string? cachedToken = null;
+var azureOpenAIEndpoint = configuration.GetValue<string>("AZURE_OPENAI_ENDPOINT");
+var poolManagementEndpoint = configuration.GetValue<string>("POOL_MANAGEMENT_ENDPOINT");
 
 // Logger for program scope
 ILogger logger = NullLogger.Instance;
+
+DefaultAzureCredential credential = new DefaultAzureCredential();
 
 /// <summary>
 /// Acquire a token for the Azure Container Apps service
 /// </summary>
 async Task<string> TokenProvider()
 {
-    if (cachedToken is null)
+    string resource = "https://acasessions.io/.default";
+    // Attempt to get the token
+    var accessToken = await credential.GetTokenAsync(new Azure.Core.TokenRequestContext([resource])).ConfigureAwait(false);
+    if (logger.IsEnabled(LogLevel.Information))
     {
-        string resource = "https://acasessions.io/.default";
-        var credential = new DefaultAzureCredential();
-
-        // Attempt to get the token
-        var accessToken = await credential.GetTokenAsync(new Azure.Core.TokenRequestContext([resource])).ConfigureAwait(false);
-        if (logger.IsEnabled(LogLevel.Information))
-        {
-            logger.LogInformation("Access token obtained successfully");
-        }
-        cachedToken = accessToken.Token;
+        logger.LogInformation("Access token obtained successfully");
     }
-
-    return cachedToken;
+    return accessToken.Token;
 }
 
 var settings = new SessionsPythonSettings(
@@ -61,7 +54,8 @@ var builder =
     .AddAzureOpenAIChatCompletion(modelId, azureOpenAIEndpoint, new DefaultAzureCredential());
 
 // Change the log level to Trace to see more detailed logs
-builder.Services.AddLogging(loggingBuilder => {
+builder.Services.AddLogging(loggingBuilder =>
+{
     loggingBuilder.AddConsole().SetMinimumLevel(LogLevel.Warning)
         .AddFilter("Microsoft.SemanticKernel", LogLevel.Trace);
 });
